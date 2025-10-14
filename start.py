@@ -17,11 +17,26 @@ import time
 from werkzeug.utils import secure_filename
 import uuid
 import requests
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 class CustomRequestHandler(WSGIHandler):
     def log_request(self):
         pass
+
+
+def sanitize_unicode_filename(name: str, *, default_prefix: str = 'download') -> str:
+    name = (name or '').strip().replace('\0', '')
+    # 替换路径分隔符和非法字符
+    name = name.replace('/', '_').replace('\\', '_')
+    name = re.sub(r'[<>:"/\\|?*\r\n]', '_', name)
+    name = re.sub(r'\s+', '_', name)
+    name = name.strip('._')
+    if not name:
+        name = f'{default_prefix}_{int(time.time())}'
+    # Windows 对文件名长度有限制，这里做一个简易截断
+    if len(name) > 200:
+        name = name[:200]
+    return name
 
 
 # 配置日志
@@ -217,21 +232,25 @@ def download_from_url():
         if not os.path.exists(upload_dir):
             os.makedirs(upload_dir, exist_ok=True)
         
-        # 从URL获取文件名
-        filename = os.path.basename(parsed_url.path)
-        if not filename:
-            # 如果URL路径中没有文件名，使用时间戳
+        # 从URL获取原始文件名（保留中文）
+        raw_filename = os.path.basename(parsed_url.path)
+        if raw_filename:
+            raw_filename = unquote(raw_filename)
+        else:
+            raw_filename = ''
+
+        base_name, ext = os.path.splitext(raw_filename)
+        if not ext:
             ext = '.mp4'  # 默认扩展名
-            filename = f'download_{int(time.time())}{ext}'
-        
-        # 确保文件名安全
-        filename = secure_filename(filename)
-        
+        ext = ext.lower()
+
         # 检查文件扩展名
         allowed_extensions = ['.mp4', '.mp3', '.flac', '.wav', '.aac', '.m4a', '.avi', '.mkv', '.mpeg', '.mov']
-        ext = os.path.splitext(filename)[1].lower()
         if ext not in allowed_extensions:
             return jsonify({'code': 1, 'msg': f'不支持的文件格式: {ext}'})
+
+        safe_base_name = sanitize_unicode_filename(base_name if base_name else '', default_prefix='download')
+        filename = f'{safe_base_name}{ext}'
         
         filepath = os.path.join(upload_dir, filename)
         
