@@ -1,0 +1,33 @@
+import subprocess, time
+from pyngrok import ngrok
+
+# 切换到项目目录
+%cd /content/stt
+
+# 设置 ngrok Token
+ngrok.set_auth_token("340OHrkNY4OuR3OKGzTXKzgs50g_2KpQ1oR2yx4atxSMPqUF7")
+
+# 关闭旧进程
+!pkill -f "python start.py" || echo "没有旧进程"
+
+# 启动服务
+process = subprocess.Popen(
+    ["python", "start.py", "--host", "0.0.0.0"],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE
+)
+
+print("正在启动服务，请稍等 3 秒...")
+time.sleep(3)
+
+# 建立 ngrok 外网访问
+public_url = ngrok.connect(9977)
+print("Web UI 访问地址：", public_url)
+
+# 打印启动日志
+print("\n---- 启动日志 ----")
+for i in range(15):
+    line = process.stdout.readline()
+    if not line:
+        break
+    print(line.decode().strip())

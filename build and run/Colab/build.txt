@@ -1,0 +1,25 @@
+!apt update -y
+!apt install -y ffmpeg git p7zip-full
+
+# 克隆仓库
+!git clone https://github.com/HT3301601278/stt.git
+%cd stt
+
+# 安装依赖
+!pip install -r requirements.txt
+!pip install pyngrok
+
+# 查看 GPU 环境
+# !nvcc --version
+# !nvidia-smi
+
+# 下载并解压模型
+!mkdir -p models
+!wget -O model.7z https://github.com/jianchang512/stt/releases/download/0.0/faster-large-v3-turbo.7z
+!7z x model.7z -o./models/
+
+print("安装完成")
+
+# 重新启动
+import os
+os._exit(0)
