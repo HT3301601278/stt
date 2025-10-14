@@ -16,6 +16,8 @@ from faster_whisper import WhisperModel
 import time
 from werkzeug.utils import secure_filename
 import uuid
+import requests
+from urllib.parse import urlparse
 
 class CustomRequestHandler(WSGIHandler):
     def log_request(self):
@@ -194,6 +196,86 @@ def select_upload_file():
     except Exception as e:
         app.logger.error(f'[select_upload_file]error: {e}')
         return jsonify({'code': 1, 'msg': str(e)})
+
+# 从URL下载文件到upload文件夹
+@app.route('/download_from_url', methods=['POST'])
+def download_from_url():
+    try:
+        url = request.form.get('url', '').strip()
+        if not url:
+            return jsonify({'code': 1, 'msg': '请提供下载链接'})
+        
+        # 验证URL格式
+        try:
+            parsed_url = urlparse(url)
+            if not parsed_url.scheme or not parsed_url.netloc:
+                return jsonify({'code': 1, 'msg': 'URL格式不正确'})
+        except Exception:
+            return jsonify({'code': 1, 'msg': 'URL格式不正确'})
+        
+        upload_dir = os.path.join(ROOT_DIR, 'upload')
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir, exist_ok=True)
+        
+        # 从URL获取文件名
+        filename = os.path.basename(parsed_url.path)
+        if not filename:
+            # 如果URL路径中没有文件名，使用时间戳
+            ext = '.mp4'  # 默认扩展名
+            filename = f'download_{int(time.time())}{ext}'
+        
+        # 确保文件名安全
+        filename = secure_filename(filename)
+        
+        # 检查文件扩展名
+        allowed_extensions = ['.mp4', '.mp3', '.flac', '.wav', '.aac', '.m4a', '.avi', '.mkv', '.mpeg', '.mov']
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in allowed_extensions:
+            return jsonify({'code': 1, 'msg': f'不支持的文件格式: {ext}'})
+        
+        filepath = os.path.join(upload_dir, filename)
+        
+        # 如果文件已存在，添加时间戳避免覆盖
+        if os.path.exists(filepath):
+            name_without_ext = os.path.splitext(filename)[0]
+            filename = f'{name_without_ext}_{int(time.time())}{ext}'
+            filepath = os.path.join(upload_dir, filename)
+        
+        # 下载文件
+        response = requests.get(url, stream=True, timeout=30)
+        response.raise_for_status()
+        
+        # 获取文件大小
+        total_size = int(response.headers.get('content-length', 0))
+        
+        # 写入文件
+        with open(filepath, 'wb') as f:
+            if total_size == 0:
+                f.write(response.content)
+            else:
+                downloaded = 0
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+        
+        return jsonify({
+            'code': 0,
+            'msg': '下载成功',
+            'data': {
+                'filename': filename,
+                'size': os.path.getsize(filepath)
+            }
+        })
+        
+    except requests.exceptions.Timeout:
+        return jsonify({'code': 1, 'msg': '下载超时，请检查网络连接'})
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f'[download_from_url]request error: {e}')
+        return jsonify({'code': 1, 'msg': f'下载失败: {str(e)}'})
+    except Exception as e:
+        app.logger.error(f'[download_from_url]error: {e}')
+        return jsonify({'code': 1, 'msg': f'错误: {str(e)}'})
 
 # 后端线程处理
 def shibie():

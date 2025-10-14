@@ -80,11 +80,14 @@
         font-size: 12px;
       }
       .text-res {
-        margin-bottom: 15px;
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f8f8f8;
+        border-radius: 5px;
       }
       .text-res-file {
-        margin-bottom: 6px;
-		font-size:18px;
+        font-size:18px;
+		font-weight: bold;
 		color:#000
       }
       .status {
@@ -153,6 +156,27 @@
       </div>
       <div id="content">
         <!-- 内容主体区域 -->
+        <!-- 从URL下载文件 -->
+        <div class="layui-collapse" style="margin-bottom: 15px;">
+          <div class="layui-colla-item">
+            <div class="layui-colla-title" data-cn="从URL下载文件到upload文件夹" data-en="Download file from URL to upload folder"></div>
+            <div class="layui-colla-content">
+              <div style="padding: 10px;">
+                <div class="layui-form-item">
+                  <div class="layui-input-group">
+                    <input type="text" id="download-url-input" placeholder="https://example.com/video.mp4" class="layui-input" style="display: inline-block; width: calc(100% - 120px);">
+                    <button type="button" class="layui-btn layui-btn-normal" id="download-from-url-btn" style="margin-left: 10px;">
+                      <i class="layui-icon layui-icon-download-circle"></i>
+                      <span data-cn="下载" data-en="Download"></span>
+                    </button>
+                  </div>
+                  <div class="layui-form-mid layui-word-aux" style="margin-top: 5px; font-size: 12px;" data-cn="支持格式: mp4, mp3, flac, wav, aac, m4a, avi, mkv, mpeg, mov" data-en="Supported formats: mp4, mp3, flac, wav, aac, m4a, avi, mkv, mpeg, mov"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <!-- 从upload文件夹选择文件 -->
         <div class="layui-collapse" style="margin-bottom: 15px;">
           <div class="layui-colla-item">
@@ -255,22 +279,6 @@
               </select>
             </div>
           </div>
-
-          <!-- 是否独立导出 -->
-          <div class="layui-form-item">
-            <label
-              class="layui-form-label"
-              
-              data-cn="独立导出"
-              data-en="Individual export"
-            ></label>
-            <div class="">
-              <select id="isIndependent" name="isIndependent">
-                <option value="on" data-cn="是" data-en="ON"></option>
-                <option value="off" data-cn="否" data-en="OFF"></option>
-              </select>
-            </div>
-          </div>
 	</div>
           <div
             class="layui-label-text layui-font-12 my-1 "
@@ -295,12 +303,6 @@
                 class="layui-icon-loading layui-icon layui-anim layui-anim-rotate layui-anim-loop"
               ></i>
             </button>
-            <div
-              class="layui-btn layui-btn-disabled"
-              data-cn="导出文本"
-              data-en="Export Text"
-              id="export-btn"
-            ></div>
           </div>
         </form>
 		
@@ -515,9 +517,8 @@
               '</div>';
           }, '');
           
-          $('#preview').removeClass('layui-hide').html(
-            '<hr><div class="preview-scroll">' + file_element + '</div>'
-          );
+          $('#preview').removeClass('layui-hide');
+          $('#preview .preview-scroll').html(file_element);
         }
         
         // 选择upload文件夹中的文件
@@ -585,6 +586,77 @@
           );
         });
         
+        // 从URL下载文件
+        $('#download-from-url-btn').click(function() {
+          var url = $('#download-url-input').val().trim();
+          if (!url) {
+            layer.msg(language === 'zh' ? '请输入下载链接' : 'Please enter download URL');
+            return;
+          }
+          
+          // 验证URL格式
+          try {
+            new URL(url);
+          } catch (e) {
+            layer.msg(language === 'zh' ? 'URL格式不正确' : 'Invalid URL format');
+            return;
+          }
+          
+          var loadingIndex = layer.load(1, {
+            content: language === 'zh' ? '正在下载...' : 'Downloading...',
+            success: function(layero) {
+              layero.find('.layui-layer-content').css({
+                'padding-top': '40px',
+                'width': '70px'
+              });
+            }
+          });
+          
+          $.ajax({
+            url: '/download_from_url',
+            type: 'POST',
+            data: { url: url },
+            timeout: 300000, // 5分钟超时
+            success: function(res) {
+              layer.close(loadingIndex);
+              if (res.code === 0) {
+                layer.msg(language === 'zh' ? '下载成功！' : 'Download successful!', {
+                  icon: 1,
+                  time: 2000
+                });
+                $('#download-url-input').val('');
+                // 刷新文件列表
+                loadUploadFiles();
+              } else {
+                layer.msg(res.msg || (language === 'zh' ? '下载失败' : 'Download failed'), {
+                  icon: 2,
+                  time: 3000
+                });
+              }
+            },
+            error: function(xhr, status, error) {
+              layer.close(loadingIndex);
+              var errorMsg = language === 'zh' ? '下载失败: ' : 'Download failed: ';
+              if (status === 'timeout') {
+                errorMsg += language === 'zh' ? '请求超时' : 'Request timeout';
+              } else {
+                errorMsg += error || (language === 'zh' ? '网络错误' : 'Network error');
+              }
+              layer.msg(errorMsg, {
+                icon: 2,
+                time: 3000
+              });
+            }
+          });
+        });
+        
+        // 回车键触发下载
+        $('#download-url-input').keypress(function(e) {
+          if (e.which === 13) {
+            $('#download-from-url-btn').click();
+          }
+        });
+        
         // 页面加载时获取文件列表
         loadUploadFiles();
         upload.render({
@@ -616,7 +688,7 @@
 			layer.msg(language === "zh"?'上传完成，可以点击开始识别了':'The upload is complete and you can click on Start Recognizing')
           },
         });
-        // 导出
+        // 导出单个文件
         function exportText(title, text) {
             var file_type = $("#data_type").val();
             var file_name = title.replace('wav', file_type.replace('text','txt'))
@@ -632,53 +704,23 @@
             aEl.remove();
             URL.revokeObjectURL(url);
           }
-        // 手动导出
-        $("#export-btn").click(function () {
-          if ($(this).hasClass("layui-btn-disabled")) {
-            return;
-          }
-          var textElList = $(".text-res");
-          if (!textElList.length) {
-            layer.alert(
-              language === "zh"
-                ? "请先识别后再进行导出!"
-                : "Please process first before exporting!",
-              { title: false }
-            );
-            return;
-          }
-          // 是否独立导出
-          if($("#isIndependent").val() === 'on') {
-            var file_type = $("#data_type").val();
-            [...textElList].forEach((el) => {
-              var title = $(el).find(".text-res-file").text();
-              var text = $(el).find("textarea").val();
-              exportText(title, text)
-            });
-          }else {
-            var exportInfos = [...textElList]
-            .map(function (el) {
-              var info = {
-                title: $(el).find(".text-res-file").text(),
-                text: $(el).find("textarea").val(),
-              };
-              return `${info.text}`;
-            })
-            .join("\n\n\n");
-            var blob = new Blob([exportInfos], {
-              type: 'text/plain'
-            })
-            var url = URL.createObjectURL(blob)
-            var aEl = document.createElement('a')
-            aEl.href = url
-            aEl.target = '_blank'
-            aEl.download = '全部音频文本.txt'
-            aEl.click()
-            aEl.remove()
-            URL.revokeObjectURL(url)
-          }
-
+        
+        // 单个文件导出按钮事件（使用事件委托）
+        $(document).on('click', '.export-single-btn', function() {
+          var filename = $(this).attr('data-filename');
+          var textEl = $(this).closest('.text-res');
+          var text = textEl.find('textarea').val();
           
+          if (!text) {
+            layer.msg(language === 'zh' ? '没有可导出的内容' : 'No content to export');
+            return;
+          }
+          
+          exportText(filename, text);
+          layer.msg(language === 'zh' ? '导出成功' : 'Export successful', {
+            icon: 1,
+            time: 1500
+          });
         });
         // 提交事件
         form.on("submit(submit)", function (data) {
@@ -741,23 +783,40 @@
                 ...field,
                 wav_name: file.data,
               }).then(function (res) {
-                // 识别结果文本区域以及导出避免误操作
+                // 识别结果文本区域
                 $(".res-placeholder").hide();
-                $("#export-btn").removeClass("layui-btn-disabled");
-                // 文件名显示
+                // 文件名显示和导出按钮
                 var texts_el = document.createElement("div");
                 texts_el.className = "text-res";
                 $(texts_el).html(
-                  `<div class="text-res-file">${res.file_name}</div>
-                    <textarea
-                        name="${res.file_name}"
-                        class="layui-textarea"
-                        cols="30"
-                        rows="10"
-                    ></textarea>`
+                  `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div class="text-res-file">${res.file_name}</div>
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal export-single-btn" data-filename="${res.file_name}">
+                      <i class="layui-icon layui-icon-download-circle"></i>
+                      <span data-cn="导出" data-en="Export"></span>
+                    </button>
+                  </div>
+                  <textarea
+                      name="${res.file_name}"
+                      class="layui-textarea"
+                      cols="30"
+                      rows="10"
+                  ></textarea>`
                 );
                 $(".text-contain").append(texts_el);
                 $(texts_el).find("textarea").val(getText(res.res.result));
+                
+                // 更新按钮文本（中英文）
+                if (language === "zh") {
+                  $(texts_el).find("[data-cn]").each(function () {
+                    $(this).html($(this).html() + $(this).attr("data-cn"));
+                  });
+                } else {
+                  $(texts_el).find("[data-en]").each(function () {
+                    $(this).html($(this).html() + $(this).attr("data-en"));
+                  });
+                }
+                
                 // 自动导出
                 if (field.switch === "on") {
                   exportText(res.file_name, getText(res.res.result))
@@ -767,31 +826,6 @@
           ).finally(function () {
             // 识别按钮解禁
             process_loading().end();
-            
-            // 识别完成后询问是否清空列表
-            if (pending_files.length > 0) {
-              layer.confirm(
-                language === 'zh' ? '识别完成！是否清空待处理列表以便处理新文件？' : 'Recognition complete! Clear pending list for new files?',
-                {
-                  title: language === 'zh' ? '提示' : 'Tip',
-                  btn: [
-                    language === 'zh' ? '清空列表' : 'Clear',
-                    language === 'zh' ? '保留' : 'Keep'
-                  ]
-                },
-                function(index) {
-                  // 点击"清空列表"
-                  pending_files = [];
-                  $('#preview').addClass('layui-hide');
-                  layer.close(index);
-                  layer.msg(language === 'zh' ? '列表已清空，可以添加新文件了' : 'List cleared, ready for new files');
-                },
-                function(index) {
-                  // 点击"保留"
-                  layer.close(index);
-                }
-              );
-            }
           });
           return false; // 阻止默认 form 跳转
         });
