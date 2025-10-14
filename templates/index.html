@@ -350,6 +350,22 @@
       var pending_files = [];
 
       var processing = false;
+      function updateProcessingUI() {
+        var buttons = $("#upload-files-list .select-file-btn");
+        if (processing) {
+          buttons.addClass("layui-btn-disabled").attr("disabled", true);
+          buttons.each(function () {
+            if (!$(this).find(".loading-icon").length) {
+              $(this).prepend(
+                '<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop loading-icon" style="margin-right: 4px;"></i>'
+              );
+            }
+          });
+        } else {
+          buttons.removeClass("layui-btn-disabled").removeAttr("disabled");
+          buttons.find(".loading-icon").remove();
+        }
+      }
       function get_file_el(file_name) {
         return $(`.flex[name="${file_name}"]`);
       }
@@ -443,10 +459,12 @@
           start: function () {
             processing = true;
             $("#submit-btn").addClass("layui-btn-disabled").find("i").show();
+            updateProcessingUI();
           },
           end: function () {
             processing = false;
             $("#submit-btn").removeClass("layui-btn-disabled").find("i").hide();
+            updateProcessingUI();
           },
         };
       }
@@ -490,6 +508,7 @@
                 var filename = $(this).attr('data-filename');
                 selectUploadFile(filename);
               });
+              updateProcessingUI();
             } else {
               layer.msg(res.msg || (language === 'zh' ? '加载失败' : 'Load failed'));
             }
