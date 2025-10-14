@@ -1,7 +1,5 @@
 <div align="center">
 
-**中文简体** | [English](./docs/en/README_EN.md)
-
 </div>
 
 ---
@@ -192,4 +190,3 @@ print(transcription.text)
 2. https://github.com/pallets/flask
 3. https://ffmpeg.org/
 4. https://layui.dev
-
