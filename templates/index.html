@@ -107,10 +107,6 @@
 	  .layui-btn-disabled{
 		background:#666 !important
 	  }
-      #clear-pending-files .layui-icon{
-        font-size:16px;
-        line-height:1;
-      }
     </style>
   </head>
   <body>
@@ -209,7 +205,6 @@
             <div class="preview-scroll"></div>
             <div style="margin-top: 10px; text-align: center;">
               <button type="button" class="layui-btn layui-btn-sm layui-btn-warm" id="clear-pending-files">
-                <i class="layui-icon layui-icon-delete"></i>
                 <span data-cn="清空待处理列表" data-en="Clear pending list"></span>
               </button>
             </div>
@@ -568,7 +563,10 @@
         });
         
         // 清空待处理文件列表
-        $(document).on('click', '#clear-pending-files', function() {
+        $(document).on('click', '#clear-pending-files', function(e) {
+          // 阻止冒泡，避免触发拖拽上传区域的点击事件弹出文件选择器
+          e.preventDefault();
+          e.stopPropagation();
           if (processing) {
             layer.msg(language === 'zh' ? '正在处理中，无法清空' : 'Processing, cannot clear');
             return;
@@ -588,6 +586,7 @@
               layer.msg(language === 'zh' ? '列表已清空' : 'List cleared');
             }
           );
+          return false;
         });
         
         // 从URL下载文件
