@@ -103,6 +103,98 @@ def upload():
         app.logger.error(f'[upload]error: {e}')
         return jsonify({'code': 2, 'msg': cfg.transobj['lang2']})
 
+# 列出upload文件夹中的文件
+@app.route('/list_upload_files', methods=['GET'])
+def list_upload_files():
+    try:
+        upload_dir = os.path.join(ROOT_DIR, 'upload')
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir, exist_ok=True)
+            return jsonify({'code': 0, 'data': []})
+        
+        files = []
+        allowed_extensions = ['.mp4', '.mp3', '.flac', '.wav', '.aac', '.m4a', '.avi', '.mkv', '.mpeg', '.mov']
+        for filename in os.listdir(upload_dir):
+            filepath = os.path.join(upload_dir, filename)
+            if os.path.isfile(filepath):
+                ext = os.path.splitext(filename)[1].lower()
+                if ext in allowed_extensions:
+                    file_stat = os.stat(filepath)
+                    file_size = file_stat.st_size
+                    # 格式化文件大小
+                    if file_size < 1024:
+                        size_str = f"{file_size}B"
+                    elif file_size < 1024 * 1024:
+                        size_str = f"{file_size / 1024:.2f}KB"
+                    else:
+                        size_str = f"{file_size / (1024 * 1024):.2f}MB"
+                    
+                    files.append({
+                        'name': filename,
+                        'size': size_str,
+                        'path': filename
+                    })
+        
+        files.sort(key=lambda x: x['name'])
+        return jsonify({'code': 0, 'data': files})
+    except Exception as e:
+        app.logger.error(f'[list_upload_files]error: {e}')
+        return jsonify({'code': 1, 'msg': str(e)})
+
+# 从upload文件夹选择文件
+@app.route('/select_upload_file', methods=['POST'])
+def select_upload_file():
+    try:
+        filename = request.form.get('filename', '').strip()
+        if not filename:
+            return jsonify({'code': 1, 'msg': '未指定文件名'})
+        
+        upload_dir = os.path.join(ROOT_DIR, 'upload')
+        source_file = os.path.join(upload_dir, filename)
+        
+        if not os.path.exists(source_file):
+            return jsonify({'code': 1, 'msg': '文件不存在'})
+        
+        # 检查文件是否在upload目录内（安全性检查）
+        if not os.path.abspath(source_file).startswith(os.path.abspath(upload_dir)):
+            return jsonify({'code': 1, 'msg': '非法文件路径'})
+        
+        noextname, ext = os.path.splitext(filename)
+        ext = ext.lower()
+        
+        # 生成目标wav文件路径
+        wav_file = os.path.join(cfg.TMP_DIR, f'{noextname}.wav')
+        
+        # 如果已经转换过，直接返回
+        if os.path.exists(wav_file) and os.path.getsize(wav_file) > 0:
+            return jsonify({'code': 0, 'msg': cfg.transobj['lang1'], "data": os.path.basename(wav_file)})
+        
+        # 使用ffmpeg转换
+        params = [
+            "-i",
+            source_file,
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            wav_file
+        ]
+        
+        try:
+            rs = tool.runffmpeg(params)
+        except Exception as e:
+            return jsonify({"code": 1, "msg": str(e)})
+        
+        if rs != 'ok':
+            return jsonify({"code": 1, "msg": rs})
+        
+        msg = cfg.transobj['lang1'] + "," + cfg.transobj['lang9']
+        return jsonify({'code': 0, 'msg': msg, "data": os.path.basename(wav_file)})
+        
+    except Exception as e:
+        app.logger.error(f'[select_upload_file]error: {e}')
+        return jsonify({'code': 1, 'msg': str(e)})
+
 # 后端线程处理
 def shibie():
     while 1:

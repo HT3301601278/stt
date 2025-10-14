@@ -153,6 +153,24 @@
       </div>
       <div id="content">
         <!-- 内容主体区域 -->
+        <!-- 从upload文件夹选择文件 -->
+        <div class="layui-collapse" style="margin-bottom: 15px;">
+          <div class="layui-colla-item">
+            <div class="layui-colla-title" data-cn="从upload文件夹选择文件" data-en="Select from upload folder"></div>
+            <div class="layui-colla-content layui-show">
+              <div style="margin-bottom: 10px; text-align: center;">
+                <button type="button" class="layui-btn layui-btn-sm" id="refresh-upload-files">
+                  <i class="layui-icon layui-icon-refresh"></i>
+                  <span data-cn="刷新列表" data-en="Refresh"></span>
+                </button>
+              </div>
+              <div id="upload-files-list" style="max-height: 200px; overflow-y: auto;">
+                <div style="text-align: center; padding: 20px; color: #999;" data-cn="加载中..." data-en="Loading..."></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <div class="layui-upload-drag layui-border-green" id="upload">
           <i class="layui-icon layui-icon-upload layui-font-green"></i>
           <div
@@ -161,6 +179,12 @@
           ></div>
           <div class="layui-hide my-1" id="preview">
             <div class="preview-scroll"></div>
+            <div style="margin-top: 10px; text-align: center;">
+              <button type="button" class="layui-btn layui-btn-sm layui-btn-warm" id="clear-pending-files">
+                <i class="layui-icon layui-icon-delete"></i>
+                <span data-cn="清空待处理列表" data-en="Clear pending list"></span>
+              </button>
+            </div>
           </div>
         </div>
         <form class="layui-form text-center layui-form-pane">
@@ -435,6 +459,134 @@
         let form = layui.form;
         // 渲染
         let layindex1 = null;
+        
+        // 加载upload文件夹中的文件列表
+        function loadUploadFiles() {
+          $.get('/list_upload_files', function(res) {
+            if (res.code === 0) {
+              var filesHtml = '';
+              if (res.data.length === 0) {
+                filesHtml = '<div style="text-align: center; padding: 20px; color: #999;">' + 
+                  (language === 'zh' ? 'upload文件夹为空' : 'Upload folder is empty') + 
+                  '</div>';
+              } else {
+                filesHtml = '<table class="layui-table" lay-skin="line"><tbody>';
+                res.data.forEach(function(file) {
+                  filesHtml += '<tr>' +
+                    '<td style="width: 60%;">' + file.name + '</td>' +
+                    '<td style="width: 20%;">' + file.size + '</td>' +
+                    '<td style="width: 20%;"><button type="button" class="layui-btn layui-btn-xs layui-btn-normal select-file-btn" data-filename="' + file.name + '">' +
+                    (language === 'zh' ? '选择' : 'Select') +
+                    '</button></td>' +
+                    '</tr>';
+                });
+                filesHtml += '</tbody></table>';
+              }
+              $('#upload-files-list').html(filesHtml);
+              
+              // 绑定选择按钮事件
+              $('.select-file-btn').click(function() {
+                var filename = $(this).attr('data-filename');
+                selectUploadFile(filename);
+              });
+            } else {
+              layer.msg(res.msg || (language === 'zh' ? '加载失败' : 'Load failed'));
+            }
+          }).fail(function() {
+            $('#upload-files-list').html('<div style="text-align: center; padding: 20px; color: #ff5722;">' + 
+              (language === 'zh' ? '加载失败' : 'Load failed') + 
+              '</div>');
+          });
+        }
+        
+        // 更新预览区域显示
+        function updatePreview() {
+          if (pending_files.length === 0) {
+            $('#preview').addClass('layui-hide');
+            return;
+          }
+          
+          const file_element = pending_files.reduce((prev, cur) => {
+            return prev + 
+              '<div class="flex" name="' + cur.data + '">' +
+              '<span class="name">' + cur.msg + ' ' + (cur.data || '') + '</span>' +
+              '<audio src="/static/tmp/' + cur.data + '" controls></audio>' +
+              '<div class="status"></div>' +
+              '</div>';
+          }, '');
+          
+          $('#preview').removeClass('layui-hide').html(
+            '<hr><div class="preview-scroll">' + file_element + '</div>'
+          );
+        }
+        
+        // 选择upload文件夹中的文件
+        function selectUploadFile(filename) {
+          if (processing) {
+            layer.msg(language === 'zh' ? '正在处理中，请稍候' : 'Processing, please wait');
+            return;
+          }
+          
+          var loadingIndex = layer.load();
+          $.post('/select_upload_file', { filename: filename }, function(res) {
+            layer.close(loadingIndex);
+            if (res.code === 0) {
+              // 检查是否已经添加过该文件
+              var exists = pending_files.some(function(file) {
+                return file.data === res.data;
+              });
+              
+              if (exists) {
+                layer.msg(language === 'zh' ? '该文件已添加' : 'File already added');
+                return;
+              }
+              
+              // 添加到待处理列表
+              pending_files.push(res);
+              
+              // 更新预览区域
+              updatePreview();
+              
+              layer.msg(language === 'zh' ? '文件已添加' : 'File added');
+            } else {
+              layer.msg(res.msg || (language === 'zh' ? '选择失败' : 'Select failed'));
+            }
+          }).fail(function() {
+            layer.close(loadingIndex);
+            layer.msg(language === 'zh' ? '请求失败' : 'Request failed');
+          });
+        }
+        
+        // 刷新按钮事件
+        $('#refresh-upload-files').click(function() {
+          loadUploadFiles();
+        });
+        
+        // 清空待处理文件列表
+        $(document).on('click', '#clear-pending-files', function() {
+          if (processing) {
+            layer.msg(language === 'zh' ? '正在处理中，无法清空' : 'Processing, cannot clear');
+            return;
+          }
+          
+          if (pending_files.length === 0) {
+            return;
+          }
+          
+          layer.confirm(
+            language === 'zh' ? '确定要清空待处理列表吗？这不会删除已导出的结果。' : 'Clear pending list? This will not delete exported results.',
+            { title: language === 'zh' ? '提示' : 'Confirm' },
+            function(index) {
+              pending_files = [];
+              $('#preview').addClass('layui-hide');
+              layer.close(index);
+              layer.msg(language === 'zh' ? '列表已清空' : 'List cleared');
+            }
+          );
+        });
+        
+        // 页面加载时获取文件列表
+        loadUploadFiles();
         upload.render({
           elem: "#upload",
           field: "audio",
@@ -443,7 +595,8 @@
           multiple: true,
           url: "/upload", // 实际使用时改成您自己的上传接口即可。
           choose: function () {
-            pending_files = [];
+            // 本地上传时不清空列表，支持混合使用
+            // pending_files = [];
           },
           before: function () {
             if (processing) {
@@ -459,19 +612,7 @@
           },
           allDone: function () {
 			layer.close(layindex1)
-            const file_element = pending_files.reduce((prev, cur) => {
-              return `${prev}
-                    <div class="flex" name="${cur.data}">
-                        <span class="name">${cur.msg} ${cur.data || ""}</span>
-                        <audio src="/static/tmp/${cur.data}" controls></audio>
-                        <div class="status"></div>
-                    </div>
-                    `;
-            }, "");
-            $("#preview").removeClass("layui-hide").html(`
-                    <hr>
-                    <div class="preview-scroll">${file_element}</div>
-                `);
+            updatePreview();
 			layer.msg(language === "zh"?'上传完成，可以点击开始识别了':'The upload is complete and you can click on Start Recognizing')
           },
         });
@@ -626,6 +767,31 @@
           ).finally(function () {
             // 识别按钮解禁
             process_loading().end();
+            
+            // 识别完成后询问是否清空列表
+            if (pending_files.length > 0) {
+              layer.confirm(
+                language === 'zh' ? '识别完成！是否清空待处理列表以便处理新文件？' : 'Recognition complete! Clear pending list for new files?',
+                {
+                  title: language === 'zh' ? '提示' : 'Tip',
+                  btn: [
+                    language === 'zh' ? '清空列表' : 'Clear',
+                    language === 'zh' ? '保留' : 'Keep'
+                  ]
+                },
+                function(index) {
+                  // 点击"清空列表"
+                  pending_files = [];
+                  $('#preview').addClass('layui-hide');
+                  layer.close(index);
+                  layer.msg(language === 'zh' ? '列表已清空，可以添加新文件了' : 'List cleared, ready for new files');
+                },
+                function(index) {
+                  // 点击"保留"
+                  layer.close(index);
+                }
+              );
+            }
           });
           return false; // 阻止默认 form 跳转
         });
