@@ -831,6 +831,9 @@
               });
             })
           ).finally(function () {
+            // 处理完成后清空待处理队列并更新预览
+            pending_files = [];
+            updatePreview();
             // 识别按钮解禁
             process_loading().end();
           });
