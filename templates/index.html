@@ -107,6 +107,10 @@
 	  .layui-btn-disabled{
 		background:#666 !important
 	  }
+      #clear-pending-files .layui-icon{
+        font-size:16px;
+        line-height:1;
+      }
     </style>
   </head>
   <body>
@@ -606,8 +610,12 @@
             content: language === 'zh' ? '正在下载...' : 'Downloading...',
             success: function(layero) {
               layero.find('.layui-layer-content').css({
-                'padding-top': '40px',
-                'width': '70px'
+                'display': 'flex',
+                'align-items': 'center',
+                'justify-content': 'center',
+                'padding': '20px 24px',
+                'width': 'auto',
+                'white-space': 'nowrap'
               });
             }
           });
