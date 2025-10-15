@@ -1,192 +1,157 @@
-<div align="center">
+## 项目简介
+STT 是一个专注于本地离线语音识别的开源工具，基于 faster-whisper 推理引擎和 Flask Web 服务实现。项目提供图形化网页前端、REST API 以及 OpenAI Speech API 兼容接口，可无缝替换包括 OpenAI Whisper、百度语音识别在内的多种云端服务，满足本地化部署、隐私保护与成本控制等场景需求。
 
-</div>
+## 目录
+- [项目简介](#项目简介)
+- [功能亮点](#功能亮点)
+- [快速上手](#快速上手)
+- [源码部署（Windows/Linux/macOS）](#源码部署windowslinuxmacos)
+- [模型管理](#模型管理)
+- [Web 界面使用指南](#web-界面使用指南)
+- [REST API](#rest-api)
+- [OpenAI Speech API 兼容模式](#openai-speech-api-兼容模式)
+- [配置说明](#配置说明)
+- [CUDA 与显卡加速](#cuda-与显卡加速)
+- [常见问题](#常见问题)
+- [发展方向与贡献](#发展方向与贡献)
+- [许可证](#许可证)
 
----
+## 功能亮点
+- 离线部署：所有推理均在本地执行，数据不出内网，保护隐私。
+- 多语言识别：支持中文、英语、法语、日语等十余种语言，可自动检测。
+- 多种模型：内置 tiny 版本，支持 base/small/medium/large-v3 及 distil 系列模型，按需扩展。
+- 丰富输出格式：支持纯文本、JSON 结构化字幕、SRT 带时间轴字幕。
+- 图形化界面：拖拽上传、任务进度条、结果预览等交互化体验。
+- API 能力：提供 `/api` REST 接口与 `/v1/audio/transcriptions` OpenAI 兼容接口，便于集成。
+- GPU 加速：自动检测 NVIDIA GPU 并在配置完成后启用 CUDA，显著提升推理速度。
 
-<div align="center">
+## 快速上手
+### 预编译版（Windows）
+1. [前往 Release 页面下载最新预编译包](https://github.com/jianchang512/stt/releases)。
+2. 解压至任意目录，例如 `E:\stt`。
+3. 双击 `start.exe`，等待弹出浏览器页面（默认地址 `http://127.0.0.1:9977`）。
+4. 在页面上传音/视频文件，或拖拽文件到上传区域；选择目标语言、输出格式与模型后点击“立即开始识别”。
+5. 识别结果将显示在页面底部，可直接复制或下载；若检测到已配置的 NVIDIA GPU，将自动使用 CUDA 加速。
 
-[👑 捐助本项目](https://pyvideotrans.com/about)
+## 源码部署（Windows/Linux/macOS）
+### 环境要求
+- Python 3.9 – 3.11
+- git（克隆项目所需）
+- ffmpeg（音视频解码；Windows 需确保 `ffmpeg.exe`、`ffprobe.exe` 在项目根目录或 PATH 中）
+- 可选：NVIDIA GPU + CUDA 11.x/12.x（用于加速）
 
-</div>
+### 部署步骤
+1. **获取源码**
+   ```bash
+   git clone https://github.com/jianchang512/stt.git
+   cd stt
+   ```
+2. **创建虚拟环境并激活**
+   ```bash
+   python -m venv venv
+   # Windows
+   .\venv\Scripts\activate
+   # Linux/macOS
+   source venv/bin/activate
+   ```
+3. **安装依赖**
+   ```bash
+   pip install -r requirements.txt
+   ```
+   若遇到依赖冲突，可执行 `pip install -r requirements.txt --no-deps`。需要 CUDA 加速时，先卸载 CPU 版本的 torch，再从官方 CUDA 源安装：
+   ```bash
+   pip uninstall -y torch
+   pip install torch --index-url https://download.pytorch.org/whl/cu121
+   ```
+4. **准备 ffmpeg**
+   - Windows：将 `ffmpeg.exe` 与 `ffprobe.exe` 放在项目根目录（或配置 PATH）。
+   - Linux/macOS：使用系统包管理器安装，如 `apt install ffmpeg` 或 `brew install ffmpeg`。
+5. **下载模型**
+   - 内置 tiny 模型适合快速体验。
+   - 访问 [模型下载页面](https://github.com/jianchang512/stt/releases/tag/0.0)，将解压后的模型文件夹放入 `models/` 目录。
+6. **启动服务**
+   ```bash
+   python start.py
+   ```
+   程序会自动启动后台识别线程并打开浏览器，默认监听 `http://127.0.0.1:9977`。
 
----
+## 模型管理
+- faster-whisper 提供 tiny/base/small/medium/large-v3 等多个尺寸，模型越大准确率越高，对显存与内存需求也更高。
+- 将下载的模型目录（例如 `models--Systran--faster-whisper-base`）直接放入 `models/` 下即可被自动识别。
+- 通过 Web 前端或 API 选择 `model` 参数即可切换使用的模型。
+- 若使用 distil 系列模型，保持原始名称（示例：`distil-large-v2`），程序会自动适配。
 
+## Web 界面使用指南
+- 拖拽或点击上传音频/视频文件，支持 mp4、mp3、wav、flac、aac、m4a 等格式。
+- 可从 `upload/` 目录选择历史文件，或粘贴网络链接自动下载至本地。
+- 支持选择输出格式（Text/JSON/SRT），并在识别过程中显示实时进度。
+- 任务完成后，可在界面内复制文本或将字幕文件下载保存。
 
-# 语音识别转文字工具
-
-这是一个离线运行的本地语音识别转文字工具，基于 fast-whipser 开源模型，可将视频/音频中的人类声音识别并转为文字，可输出json格式、srt字幕带时间戳格式、纯文字格式。可用于自行部署后替代 openai 的语音识别接口或百度语音识别等，准确率基本等同openai官方api接口。
-
-
-fast-whisper 开源模型有 tiny/base/small/medium/large-v3, 内置 tiny 模型，tiny->large-v3识别效果越来越好，但所需计算机资源也更多，根据需要可自行下载后解压到 models 目录下即可。
-
-
-
-# 视频演示
-
-
-https://github.com/jianchang512/stt/assets/3378335/d716acb6-c20c-4174-9620-f574a7ff095d
-
-
-![image](https://github.com/jianchang512/stt/assets/3378335/0f724ff1-21b3-4960-b6ba-5aa994ea414c)
-
-
-
-
-# 预编译Win版使用方法/Linux和Mac源码部署
-
-1. [点击此处打开Releases页面下载](https://github.com/jianchang512/stt/releases)预编译文件
-
-2. 下载后解压到某处，比如 E:/stt
-
-3. 双击 start.exe ，等待自动打开浏览器窗口即可
-
-4. 点击页面中的上传区域，在弹窗中找到想识别的音频或视频文件，或直接拖拽音频视频文件到上传区域，然后选择发生语言、文本输出格式、所用模型，点击“立即开始识别”，稍等片刻，底部文本框中会以所选格式显示识别结果
-
-5. 如果机器拥有英伟达GPU，并正确配置了CUDA环境，将自动使用CUDA加速
-
-
-# 源码部署(Linux/Mac/Window)
-
-0. 要求 python 3.9->3.11
-
-1. 创建空目录，比如 E:/stt, 在这个目录下打开 cmd 窗口，方法是地址栏中输入 `cmd`, 然后回车。
-
-	使用git拉取源码到当前目录 ` git clone git@github.com:jianchang512/stt.git . `
-
-2. 创建虚拟环境 `python -m venv venv`
-
-3. 激活环境，win下命令 `%cd%/venv/scripts/activate`，linux和Mac下命令 `source ./venv/bin/activate`
-
-4. 安装依赖: `pip install -r requirements.txt`,如果报版本冲突错误，请执行 `pip install -r requirements.txt --no-deps` ,如果希望支持cuda加速，继续执行代码 `pip uninstall -y torch`, `pip install torch --index-url https://download.pytorch.org/whl/cu121`
-
-5. win下解压 ffmpeg.7z，将其中的`ffmpeg.exe`和`ffprobe.exe`放在项目目录下, linux和mac 自行搜索 如何安装ffmpeg
-
-6. [下载模型压缩包](https://github.com/jianchang512/stt/releases/tag/0.0)，根据需要下载模型，下载后将压缩包里的文件夹放到项目根目录的 models 文件夹内
-
-7. 执行  `python  start.py `，等待自动打开本地浏览器窗口。
-
-
-# Api接口
-
-接口地址: http://127.0.0.1:9977/api
-
-请求方法: POST
-
-请求参数:
-
-    language: 语言代码:可选如下
-
-    >
-    > 中文：zh
-    > 英语：en
-    > 法语：fr
-    > 德语：de
-    > 日语：ja
-    > 韩语：ko
-    > 俄语：ru
-    > 西班牙语：es
-    > 泰国语：th
-    > 意大利语：it
-    > 葡萄牙语：pt
-    > 越南语：vi
-    > 阿拉伯语：ar
-    > 土耳其语：tr
-    >
-
-    model: 模型名称，可选如下
-    >
-    > base 对应于 models/models--Systran--faster-whisper-base
-    > small 对应于 models/models--Systran--faster-whisper-small
-    > medium 对应于 models/models--Systran--faster-whisper-medium
-    > large-v3 对应于 models/models--Systran--faster-whisper-large-v3
-    >
-
-    response_format: 返回的字幕格式，可选 text|json|srt
-
-    file: 音视频文件，二进制上传
-
-Api 请求示例
-
+## REST API
+- 地址：`POST http://127.0.0.1:9977/api`
+- 表单字段：
+  - `file`：二进制音视频文件
+  - `language`：语言代码（`zh`、`en`、`fr`、`de`、`ja`、`ko`、`ru`、`es`、`th`、`it`、`pt`、`vi`、`ar`、`tr`、`auto`）
+  - `model`：模型名称（如 `base`、`small`、`medium`、`large-v3`）
+  - `response_format`：`text`、`json` 或 `srt`
+- 响应：`code` 为 0 表示成功，`data` 字段返回转写内容。
 ```python
-    import requests
-    # 请求地址
-    url = "http://127.0.0.1:9977/api"
-    # 请求参数  file:音视频文件，language：语言代码，model：模型，response_format:text|json|srt
-    # 返回 code==0 成功，其他失败，msg==成功为ok，其他失败原因，data=识别后返回文字
-    files = {"file": open("C:/Users/c1/Videos/2.wav", "rb")}
-    data={"language":"zh","model":"base","response_format":"json"}
-    response = requests.request("POST", url, timeout=600, data=data,files=files)
-    print(response.json())
+import requests
+
+url = "http://127.0.0.1:9977/api"
+files = {"file": open("sample.wav", "rb")}
+data = {"language": "zh", "model": "base", "response_format": "json"}
+response = requests.post(url, data=data, files=files, timeout=600)
+print(response.json())
 ```
 
-# 兼容 openai 语音转文字接口
-
-示例代码
-```
-# openai兼容格式
+## OpenAI Speech API 兼容模式
+- 地址：`POST http://127.0.0.1:9977/v1/audio/transcriptions`
+- 完整兼容 OpenAI SDK（`openai`/`openai-python`）。
+```python
 from openai import OpenAI
 
-client = OpenAI(api_key='123',base_url='http://127.0.0.1:9977/v1')
-audio_file= open("/users/c1/videos/60.wav", "rb")
-
-transcription = client.audio.transcriptions.create(
-    model="tiny", 
-    file=audio_file,
-    response_format="text" # 支持 text 、srt 格式，json格式会返回srt字幕解析后的json数据
-)
-
+client = OpenAI(api_key="dummy", base_url="http://127.0.0.1:9977/v1")
+with open("sample.wav", "rb") as audio_file:
+    transcription = client.audio.transcriptions.create(
+        model="tiny",
+        file=audio_file,
+        response_format="text"  # 支持 text、srt、json
+    )
 print(transcription.text)
-
 ```
 
+## 配置说明
+项目根目录的 `set.ini` 可用于自定义行为，常用字段如下：
+- `web_address`：监听地址与端口（默认 `127.0.0.1:9977`）。
+- `devtype`：推理设备，`cpu` 或 `cuda`。
+- `beam_size`、`best_of`：控制解码质量与速度平衡。
+- `temperature`：解码温度；设为 0 时使用贪心搜索。
+- `vad`：是否启用语音活动检测，减少静音片段误识别。
+- `condition_on_previous_text`：是否依据上文上下文进行解码。
+- `initial_prompt_zh`：中文场景的初始提示词，可引导输出风格。
 
-# CUDA 加速支持
+修改配置后需重新启动服务生效。
 
-**安装CUDA工具** [详细安装方法](https://juejin.cn/post/7318704408727519270)
+## CUDA 与显卡加速
+1. 安装或升级 NVIDIA 显卡驱动。
+2. 安装匹配版本的 [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) 与 [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive)。
+3. 打开命令行执行 `nvcc --version` 与 `nvidia-smi` 确认环境配置正确。
+4. 在 `set.ini` 中将 `devtype=cpu` 修改为 `devtype=cuda`，重新启动程序。
+5. 运行 `python testcuda.py` 验证 CUDA 版本关联是否成功。
 
-如果你的电脑拥有 Nvidia 显卡，先升级显卡驱动到最新，然后去安装对应的 
-   [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads)  和  [cudnn for CUDA11.X](https://developer.nvidia.com/rdp/cudnn-archive)。
-   
-   安装完成成，按`Win + R`,输入 `cmd`然后回车，在弹出的窗口中输入`nvcc --version`,确认有版本信息显示，类似该图
-   ![image](https://github.com/jianchang512/pyvideotrans/assets/3378335/e68de07f-4bb1-4fc9-bccd-8f841825915a)
+注意：`large/large-v3` 模型对显存要求较高，建议显存 ≥ 12GB；显存不足时可改用 `medium` 或更小模型。
 
-   然后继续输入`nvidia-smi`,确认有输出信息，并且能看到cuda版本号，类似该图
-   ![image](https://github.com/jianchang512/pyvideotrans/assets/3378335/71f1d7d3-07f9-4579-b310-39284734006b)
+## 常见问题
+- **识别中突然退出？** 通常是 CUDA 环境缺失或显存不足，确保正确安装 cuDNN，或改用更小模型。
+- **提示 `cublasXX.dll` 不存在？** 从 [cuBLAS 下载包](https://github.com/jianchang512/stt/releases/download/0.0/cuBLAS_win.7z) 解压，将 DLL 拷贝到 `C:\Windows\System32`。
+- **中文输出繁体？** 这是模型特性，可在后处理中转换或在 `initial_prompt_zh` 中加入“输出简体中文”提示。
+- **控制台出现 onnxruntime 相关 WARNING？** 属于已知日志，不影响使用，可忽略。
 
-    然后执行 `python testcuda.py`，如果提示成功，说明安装正确，否则请仔细检查重新安装
-    
-    默认使用 cpu 运算，如果确定使用英伟达显卡，并且配置好了cuda环境，请修改 set.ini 中 `devtype=cpu`为 `devtype=cuda`,并重新启动，可使用cuda加速
+## 发展方向与贡献
+- 欢迎提交 Issue 或 Pull Request 反馈问题、贡献特性。
+- 计划引入的能力包含：批量任务队列、长音频切片优化、自动字幕段落合并、多语言界面优化等。
+- 如果该项目对你有帮助，欢迎 Star 支持。
 
-# 注意事项
-
-0. 如果没有英伟达显卡或未配置好CUDA环境，不要使用 large/large-v3 模型，可能导致内存耗尽死机
-1. 中文在某些情况下会输出繁体字
-2. 有时会遇到“cublasxx.dll不存在”的错误，此时需要下载 cuBLAS，然后将dll文件复制到系统目录下，[点击下载 cuBLAS](https://github.com/jianchang512/stt/releases/download/0.0/cuBLAS_win.7z)，解压后将里面的dll文件复制到 C:/Windows/System32下
-3. 如果控制台出现"[W:onnxruntime:Default, onnxruntime_pybind_state.cc:1983 onnxruntime::python::CreateInferencePybindStateModule] Init provider bridge failed.", 可忽略，不影响使用
-4. 默认使用 cpu 运算，如果确定使用英伟达显卡，并且配置好了cuda环境，请修改 set.ini 中 `devtype=cpu`为 `devtype=cuda`,并重新启动，可使用cuda加速
-
-
-
-5. 尚未执行完毕就闪退
-
-如果启用了cuda并且电脑已安装好了cuda环境，但没有手动安装配置过cudnn，那么会出现该问题，去安装和cuda匹配的cudnn。比如你安装了cuda12.3，那么就需要下载cudnn for cuda12.x压缩包，然后解压后里面的3个文件夹复制到cuda安装目录下。具体教程参考 https://juejin.cn/post/7318704408727519270
-
-如果cudnn按照教程安装好了仍闪退，那么极大概率是GPU显存不足，可以改为使用 medium模型，显存不足8G时，尽量避免使用largev-3模型，尤其是视频大于20M时，否则可能显存不足而崩溃
-
-# 相关联项目
-
-[视频翻译配音工具:翻译字幕并配音](https://github.com/jianchang512/pyvideotrans)
-
-[声音克隆工具:用任意音色合成语音](https://github.com/jianchang512/clone-voice)
-
-[人声背景乐分离:极简的人声和背景音乐分离工具，本地化网页操作](https://github.com/jianchang512/vocal-separate)
-
-# 致谢
-
-本项目主要依赖的其他项目
-
-1. https://github.com/SYSTRAN/faster-whisper
-2. https://github.com/pallets/flask
-3. https://ffmpeg.org/
-4. https://layui.dev
+## 许可证
+本项目基于 [GPL-3.0](./LICENSE) 协议开源，使用时请遵守相关条款。
