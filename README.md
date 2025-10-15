@@ -43,7 +43,7 @@ STT 是一个专注于本地离线语音识别的开源工具，基于 faster-wh
 ### 部署步骤
 1. **获取源码**
    ```bash
-   git clone https://github.com/jianchang512/stt.git
+   git clone https://github.com/HT3301601278/stt.git
    cd stt
    ```
 2. **创建虚拟环境并激活**
