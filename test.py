@@ -1,5 +1,4 @@
 # api 请求示例
-import os
 import requests
 
 # 请求地址

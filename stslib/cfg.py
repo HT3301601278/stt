@@ -1,8 +1,8 @@
 import locale
 import os
-import sys
-import torch
 import re
+import sys
+
 ROOT_DIR = os.getcwd()
 
 def parse_ini(file=os.path.join(ROOT_DIR,'set.ini')):

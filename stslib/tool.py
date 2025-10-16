@@ -4,8 +4,10 @@ import webbrowser
 from datetime import timedelta
 
 import requests
+
 import stslib
 from stslib import cfg
+
 
 def runffmpeg(arg):
     cmd = ["ffmpeg","-hide_banner","-y"]

@@ -1,13 +1,14 @@
-import logging,shutil
-import re
-import threading
-import sys
-import torch
-from flask import Flask, request, render_template, jsonify, send_from_directory,Response
+import logging
 import os
-from gevent.pywsgi import WSGIServer, WSGIHandler, LoggingLogAdapter
-from logging.handlers import RotatingFileHandler
+import re
+import shutil
+import threading
 import warnings
+from logging.handlers import RotatingFileHandler
+
+from flask import Flask, request, render_template, jsonify, send_from_directory, Response
+from gevent.pywsgi import WSGIServer, WSGIHandler
+
 warnings.filterwarnings('ignore')
 import stslib
 from stslib import cfg, tool
