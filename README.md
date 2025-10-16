@@ -25,14 +25,6 @@ STT 是一个专注于本地离线语音识别的开源工具，基于 faster-wh
 - API 能力：提供 `/api` REST 接口与 `/v1/audio/transcriptions` OpenAI 兼容接口，便于集成。
 - GPU 加速：自动检测 NVIDIA GPU 并在配置完成后启用 CUDA，显著提升推理速度。
 
-## 快速上手
-### 预编译版（Windows）
-1. [前往 Release 页面下载最新预编译包](https://github.com/jianchang512/stt/releases)。
-2. 解压至任意目录，例如 `E:\stt`。
-3. 双击 `start.exe`，等待弹出浏览器页面（默认地址 `http://127.0.0.1:9977`）。
-4. 在页面上传音/视频文件，或拖拽文件到上传区域；选择目标语言、输出格式与模型后点击“立即开始识别”。
-5. 识别结果将显示在页面底部，可直接复制或下载；若检测到已配置的 NVIDIA GPU，将自动使用 CUDA 加速。
-
 ## 源码部署（Windows/Linux/macOS）
 ### 环境要求
 - Python 3.9 – 3.11
