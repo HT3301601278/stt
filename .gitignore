@@ -6,7 +6,6 @@ models
 *.log
 *.wav
 *.mp3
-*.spec
 *.exe
 *.zip
 ffmpeg
